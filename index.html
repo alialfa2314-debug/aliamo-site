@@ -503,113 +503,107 @@ document.querySelectorAll('.reveal').forEach(el=>revObs.observe(el));
 // ── VIDEO SCROLL SCRUB ──
 const vid = document.getElementById('hero-video');
 const hero = document.getElementById('hero');
-
-// How many vh of scroll = full scrub zone (the scroll-pinned area)
-// We pin the hero for SCRUB_HEIGHT vh, then release
-const SCRUB_HEIGHT = 400; // vh units — this is the scrollable distance for scrubbing
-
-// The catwalk moment: fraction of video duration (0–1)
-// Video is 16s: fabric→shapes→collection→catwalk
-// Catwalk starts around 75% into the video (~12s)
-const CATWALK_FRACTION = 0.75;
+const SCRUB_VH = 400; // total scroll distance for scrubbing
+const CATWALK_FRACTION = 0.75; // 75% of video = catwalk moment
 
 let scrubDone = false;
-let videoDuration = 0;
-let isPlaying = false;
+let videoDuration = 16;
+let scrubSpacer, scrubLabel;
 
-// Wait for video metadata
-vid.addEventListener('loadedmetadata', () => {
-  videoDuration = vid.duration;
-  vid.pause();
-  vid.currentTime = 0;
-  vid.classList.add('loaded');
-});
-
-// Fallback if already loaded
-if (vid.readyState >= 1) {
+function initScrub() {
   videoDuration = vid.duration || 16;
+
+  // Pause video — scroll controls it
   vid.pause();
+  vid.loop = false;
   vid.currentTime = 0;
   vid.classList.add('loaded');
+
+  // Make hero sticky
+  hero.style.position = 'sticky';
+  hero.style.top = '0';
+  hero.style.zIndex = '2';
+
+  // Insert spacer after hero for scroll room
+  scrubSpacer = document.createElement('div');
+  scrubSpacer.id = 'scrub-spacer';
+  scrubSpacer.style.height = SCRUB_VH + 'vh';
+  hero.insertAdjacentElement('afterend', scrubSpacer);
+
+  // Scroll hint label
+  scrubLabel = document.createElement('div');
+  scrubLabel.style.cssText = `
+    position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
+    z-index:20;font-family:'DM Mono',monospace;font-size:.55rem;
+    letter-spacing:.25em;color:rgba(200,200,200,0.5);
+    text-transform:uppercase;pointer-events:none;
+    transition:opacity .4s;white-space:nowrap;
+  `;
+  scrubLabel.textContent = '↓  Scroll to explore';
+  document.body.appendChild(scrubLabel);
+
+  window.addEventListener('scroll', onScroll, {passive:true});
 }
-
-// Create a spacer so page has enough scroll room for scrubbing
-const scrubSpacer = document.createElement('div');
-scrubSpacer.id = 'scrub-spacer';
-scrubSpacer.style.cssText = `height:${SCRUB_HEIGHT}vh;`;
-hero.insertAdjacentElement('afterend', scrubSpacer);
-
-// Sticky hero while scrubbing
-hero.style.cssText += 'position:sticky;top:0;z-index:1;';
-
-// Scroll label
-const scrubLabel = document.createElement('div');
-scrubLabel.id = 'scrub-label';
-scrubLabel.style.cssText = `
-  position:fixed;bottom:36px;right:44px;z-index:10;
-  font-family:'DM Mono',monospace;font-size:.52rem;
-  letter-spacing:.22em;color:rgba(140,140,140,0.6);
-  text-transform:uppercase;pointer-events:none;
-  transition:opacity .5s;
-`;
-scrubLabel.textContent = 'Scroll to explore';
-document.body.appendChild(scrubLabel);
 
 function onScroll() {
   if (scrubDone) return;
 
-  const spacer = document.getElementById('scrub-spacer');
-  const spacerTop = spacer.getBoundingClientRect().top + window.scrollY - window.innerHeight;
-  const spacerH = spacer.offsetHeight;
+  // scrubSpacer starts right after the sticky hero
+  // So scrub starts when we've scrolled past 100vh (hero height)
+  const scrubStart = window.innerHeight;
+  const scrubEnd = scrubStart + (SCRUB_VH / 100 * window.innerHeight);
+  const scrolled = window.scrollY;
 
-  // How far we've scrolled into the scrub zone (0 to 1)
-  const scrolled = window.scrollY - spacerTop;
-  const progress = Math.max(0, Math.min(1, scrolled / spacerH));
+  const progress = Math.max(0, Math.min(1, (scrolled - scrubStart) / (scrubEnd - scrubStart)));
 
-  if (progress <= 0) {
-    // Haven't started scrubbing yet
-    vid.pause();
-    vid.currentTime = 0;
-    scrubLabel.style.opacity = '1';
-    return;
-  }
+  // Map progress to video time (0 → catwalk point)
+  const targetTime = progress * (videoDuration * CATWALK_FRACTION);
 
-  // Map scroll progress → video time up to catwalk point
-  const scrubEnd = videoDuration * CATWALK_FRACTION;
-  const targetTime = progress * scrubEnd;
-
-  // Update video frame
-  if (Math.abs(vid.currentTime - targetTime) > 0.05) {
+  if (!scrubDone) {
     vid.currentTime = targetTime;
   }
 
   // Update label
-  const pct = Math.round(progress * 100);
-  scrubLabel.textContent = pct < 99 ? `${pct}%` : 'Play ▶';
-
-  // When scroll reaches 100% → release video to play freely
-  if (progress >= 0.999) {
-    scrubDone = true;
+  if (progress <= 0) {
+    scrubLabel.style.opacity = '1';
+    scrubLabel.textContent = '↓  Scroll to explore';
+  } else if (progress < 1) {
+    scrubLabel.style.opacity = '1';
+    scrubLabel.textContent = `${Math.round(progress * 100)}%`;
+  } else {
     scrubLabel.style.opacity = '0';
+  }
 
-    // Remove sticky, remove spacer
+  // Reached end — release to play freely
+  if (progress >= 1 && !scrubDone) {
+    scrubDone = true;
+
+    // Remove sticky + spacer
     hero.style.position = '';
     hero.style.top = '';
-    spacer.style.height = '0';
-    spacer.style.display = 'none';
+    scrubSpacer.remove();
 
-    // Play video to end
+    // Play rest of video (catwalk to end)
+    vid.currentTime = videoDuration * CATWALK_FRACTION;
     vid.play();
 
-    // When video ends, fade it out
+    // Fade out when done
     vid.addEventListener('ended', () => {
-      vid.style.transition = 'opacity 1.5s ease';
+      vid.style.transition = 'opacity 2s ease';
       vid.style.opacity = '0';
+      setTimeout(() => { hero.style.display = 'none'; }, 2100);
     }, {once:true});
   }
 }
 
-window.addEventListener('scroll', onScroll, {passive:true});
+// Init when metadata ready
+if (vid.readyState >= 1) {
+  initScrub();
+} else {
+  vid.addEventListener('loadedmetadata', initScrub, {once:true});
+  // Trigger load
+  vid.load();
+}
 </script>
 </body>
 </html>
