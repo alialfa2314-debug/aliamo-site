@@ -495,17 +495,41 @@ burger.addEventListener('click',()=>{
 });
 function closeMenu(){burger.classList.remove('open');menu.classList.remove('open');document.body.style.overflow=''}
 
-// Video fade in
-const vid=document.getElementById('hero-video');
-function fadeInVideo(){vid.classList.add('loaded')}
-if(vid.readyState>=3){fadeInVideo()}else{vid.addEventListener('canplay',fadeInVideo,{once:true})}
-vid.play().catch(()=>{});
-
 // Scroll reveal
 const revObs=new IntersectionObserver(entries=>{
   entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('on');revObs.unobserve(e.target)}});
 },{threshold:.1});
 document.querySelectorAll('.reveal').forEach(el=>revObs.observe(el));
+
+// ── VIDEO SCRUB — fixed bg, scroll controls time ──
+const vid = document.getElementById('hero-video');
+vid.pause();
+vid.loop = false;
+vid.currentTime = 0;
+
+function fadeInVideo(){vid.classList.add('loaded')}
+if(vid.readyState>=1){fadeInVideo()}
+else{vid.addEventListener('loadedmetadata',fadeInVideo,{once:true})}
+
+function onScroll(){
+  const duration = vid.duration;
+  if(!duration) return;
+  const scrollMax = document.body.scrollHeight - window.innerHeight;
+  const progress = Math.min(1, window.scrollY / scrollMax);
+  vid.currentTime = progress * duration;
+}
+
+vid.addEventListener('loadedmetadata', ()=>{
+  vid.pause();
+  vid.currentTime = 0;
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+});
+
+if(vid.readyState >= 1){
+  vid.pause();
+  window.addEventListener('scroll', onScroll, {passive:true});
+}
 </script>
 </body>
 </html>
