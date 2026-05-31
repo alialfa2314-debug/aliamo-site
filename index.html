@@ -332,7 +332,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
     <span></span><span></span><span></span>
   </button>
 </nav>
-<audio id="site-audio" loop preload="none">
+<audio id="site-audio" loop preload="metadata">
   <source src="the-system.mp3" type="audio/mpeg"/>
 </audio>
 
@@ -482,104 +482,120 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 </footer>
 <button id="audio-btn">♪ Sound On</button>
 
+
 <script>
 // Progress
-const prog=document.getElementById('prog');
-window.addEventListener('scroll',()=>{prog.style.width=(window.scrollY/(document.body.scrollHeight-window.innerHeight)*100)+'%'},{passive:true});
+const prog = document.getElementById('prog');
+window.addEventListener('scroll', () => {
+  prog.style.width = (window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100) + '%';
+}, {passive: true});
 
 // Menu
-const burger=document.getElementById('burger'),menu=document.getElementById('menu');
-burger.addEventListener('click',()=>{
+const burger = document.getElementById('burger');
+const menu = document.getElementById('menu');
+burger.addEventListener('click', () => {
   burger.classList.toggle('open');
   menu.classList.toggle('open');
-  document.body.style.overflow=menu.classList.contains('open')?'hidden':'';
+  document.body.style.overflow = menu.classList.contains('open') ? 'hidden' : '';
 });
-function closeMenu(){burger.classList.remove('open');menu.classList.remove('open');document.body.style.overflow=''}
+function closeMenu() {
+  burger.classList.remove('open');
+  menu.classList.remove('open');
+  document.body.style.overflow = '';
+}
 
 // Scroll reveal
-const revObs=new IntersectionObserver(entries=>{
-  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('on');revObs.unobserve(e.target)}});
-},{threshold:.1});
-document.querySelectorAll('.reveal').forEach(el=>revObs.observe(el));
+const revObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('on');
+      revObs.unobserve(e.target);
+    }
+  });
+}, {threshold: 0.1});
+document.querySelectorAll('.reveal').forEach(el => revObs.observe(el));
 
+// Video scrub
+const vid = document.getElementById('hero-video');
+vid.pause();
+vid.loop = false;
+vid.currentTime = 0;
 
-// ── AUDIO — starts on first scroll ──
+function fadeInVideo() { vid.classList.add('loaded'); }
+if (vid.readyState >= 1) { fadeInVideo(); }
+else { vid.addEventListener('loadedmetadata', fadeInVideo, {once: true}); }
+
+let ticking = false;
+let lastScrollY = 0;
+
+function updateVideo() {
+  const duration = vid.duration;
+  if (!duration) return;
+  const scrollMax = document.body.scrollHeight - window.innerHeight;
+  const progress = Math.min(1, lastScrollY / scrollMax);
+  const target = progress * duration;
+  if (Math.abs(vid.currentTime - target) > 0.04) {
+    vid.currentTime = target;
+  }
+  ticking = false;
+}
+
+function onVideoScroll() {
+  lastScrollY = window.scrollY;
+  if (!ticking) {
+    requestAnimationFrame(updateVideo);
+    ticking = true;
+  }
+}
+
+vid.addEventListener('loadedmetadata', () => {
+  vid.pause();
+  vid.currentTime = 0;
+  window.addEventListener('scroll', onVideoScroll, {passive: true});
+});
+if (vid.readyState >= 1) {
+  vid.pause();
+  window.addEventListener('scroll', onVideoScroll, {passive: true});
+}
+
+// Audio
 const audio = document.getElementById('site-audio');
 const audioBtn = document.getElementById('audio-btn');
 let audioStarted = false;
-audio.volume = 0;
 
-function startAudio(){
-  if(audioStarted) return;
+function startAudio() {
+  if (audioStarted) return;
   audioStarted = true;
-  audio.play().then(()=>{
-    // Fade in
+  audio.volume = 0;
+  audio.play().then(() => {
+    audioBtn.classList.add('visible');
+    audioBtn.textContent = '♪ Sound On';
     let vol = 0;
-    const fade = setInterval(()=>{
+    const fade = setInterval(() => {
       vol = Math.min(0.4, vol + 0.02);
       audio.volume = vol;
-      if(vol >= 0.4) clearInterval(fade);
+      if (vol >= 0.4) clearInterval(fade);
     }, 80);
+  }).catch(() => {
+    audioStarted = false;
     audioBtn.classList.add('visible');
-  }).catch(()=>{});
+    audioBtn.textContent = '♪ Sound Off';
+  });
 }
 
-window.addEventListener('scroll', startAudio, {once:true, passive:true});
+window.addEventListener('scroll', startAudio, {once: true, passive: true});
+setTimeout(() => { audioBtn.classList.add('visible'); }, 3000);
 
-audioBtn.addEventListener('click', ()=>{
-  if(audio.paused){
+audioBtn.addEventListener('click', () => {
+  if (audio.paused) {
     audio.play();
+    audio.volume = 0.4;
     audioBtn.textContent = '♪ Sound On';
   } else {
     audio.pause();
     audioBtn.textContent = '♪ Sound Off';
   }
 });
-
-// ── VIDEO SCRUB — optimized with rAF ──
-const vid = document.getElementById('hero-video');
-vid.pause();
-vid.loop = false;
-vid.currentTime = 0;
-
-function fadeInVideo(){vid.classList.add('loaded')}
-if(vid.readyState>=1){fadeInVideo()}
-else{vid.addEventListener('loadedmetadata',fadeInVideo,{once:true})}
-
-let ticking = false;
-let lastScrollY = 0;
-
-function updateVideo(){
-  const duration = vid.duration;
-  if(!duration) return;
-  const scrollMax = document.body.scrollHeight - window.innerHeight;
-  const progress = Math.min(1, lastScrollY / scrollMax);
-  const target = progress * duration;
-  // Only update if difference is meaningful
-  if(Math.abs(vid.currentTime - target) > 0.04){
-    vid.currentTime = target;
-  }
-  ticking = false;
-}
-
-function onScroll(){
-  lastScrollY = window.scrollY;
-  if(!ticking){
-    requestAnimationFrame(updateVideo);
-    ticking = true;
-  }
-}
-
-vid.addEventListener('loadedmetadata', ()=>{
-  vid.pause();
-  vid.currentTime = 0;
-  window.addEventListener('scroll', onScroll, {passive:true});
-});
-
-if(vid.readyState >= 1){
-  vid.pause();
-  window.addEventListener('scroll', onScroll, {passive:true});
-}
 </script>
 </body>
 </html>
