@@ -497,7 +497,7 @@ const revObs=new IntersectionObserver(entries=>{
 },{threshold:.1});
 document.querySelectorAll('.reveal').forEach(el=>revObs.observe(el));
 
-// ── VIDEO SCRUB — fixed bg, scroll controls time ──
+// ── VIDEO SCRUB — optimized with rAF ──
 const vid = document.getElementById('hero-video');
 vid.pause();
 vid.loop = false;
@@ -507,19 +507,34 @@ function fadeInVideo(){vid.classList.add('loaded')}
 if(vid.readyState>=1){fadeInVideo()}
 else{vid.addEventListener('loadedmetadata',fadeInVideo,{once:true})}
 
-function onScroll(){
+let ticking = false;
+let lastScrollY = 0;
+
+function updateVideo(){
   const duration = vid.duration;
   if(!duration) return;
   const scrollMax = document.body.scrollHeight - window.innerHeight;
-  const progress = Math.min(1, window.scrollY / scrollMax);
-  vid.currentTime = progress * duration;
+  const progress = Math.min(1, lastScrollY / scrollMax);
+  const target = progress * duration;
+  // Only update if difference is meaningful
+  if(Math.abs(vid.currentTime - target) > 0.04){
+    vid.currentTime = target;
+  }
+  ticking = false;
+}
+
+function onScroll(){
+  lastScrollY = window.scrollY;
+  if(!ticking){
+    requestAnimationFrame(updateVideo);
+    ticking = true;
+  }
 }
 
 vid.addEventListener('loadedmetadata', ()=>{
   vid.pause();
   vid.currentTime = 0;
   window.addEventListener('scroll', onScroll, {passive:true});
-  onScroll();
 });
 
 if(vid.readyState >= 1){
