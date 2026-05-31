@@ -20,12 +20,11 @@
   --mono:'DM Mono',monospace;
 }
 html{scroll-behavior:smooth}
-body{background:var(--black);color:var(--white);font-family:var(--serif);overflow-x:hidden;cursor:none}
+body{background:var(--black);color:var(--white);font-family:var(--serif);overflow-x:hidden;cursor:auto}
 
 /* Cursor */
-#cur{position:fixed;width:5px;height:5px;background:var(--white);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:difference;transition:width .2s,height .2s}
-#cur-r{position:fixed;width:26px;height:26px;border:1px solid rgba(200,200,200,0.25);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%)}
-a,button{cursor:none}
+
+a,button{cursor:auto}
 
 /* Progress */
 #prog{position:fixed;top:0;left:0;height:1px;background:rgba(180,180,180,0.35);z-index:600;width:0%}
@@ -311,8 +310,6 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 </head>
 <body>
 
-<div id="cur"></div>
-<div id="cur-r"></div>
 <div id="prog"></div>
 
 <nav>
@@ -468,16 +465,6 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 </footer>
 
 <script>
-// Cursor
-const cur=document.getElementById('cur'),curR=document.getElementById('cur-r');
-let mx=0,my=0,rx=0,ry=0;
-document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px'});
-(function a(){rx+=(mx-rx)*.1;ry+=(my-ry)*.1;curR.style.left=rx+'px';curR.style.top=ry+'px';requestAnimationFrame(a)})();
-document.querySelectorAll('a,button,.tag').forEach(el=>{
-  el.addEventListener('mouseenter',()=>{cur.style.width='11px';cur.style.height='11px';curR.style.width='40px';curR.style.height='40px'});
-  el.addEventListener('mouseleave',()=>{cur.style.width='5px';cur.style.height='5px';curR.style.width='26px';curR.style.height='26px'});
-});
-
 // Progress
 const prog=document.getElementById('prog');
 window.addEventListener('scroll',()=>{prog.style.width=(window.scrollY/(document.body.scrollHeight-window.innerHeight)*100)+'%'},{passive:true});
